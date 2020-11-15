@@ -24,7 +24,7 @@ async def get_movies(current_user: User = Depends(crud.get_current_user)):
 
 
 @router.get("/movies/recommended")
-async def get_movies(user_ratings: List[Rating] = Depends(get_movies)):
+async def get_recommendations(user_ratings: List[Rating] = Depends(get_movies)):
     return crud.get_recommended_movies(user_ratings)
 
 
@@ -44,6 +44,12 @@ async def delete_rating(movie_id: int, current_user: User = Depends(crud.get_cur
 
 
 @router.post("/token", response_model=Token)
+async def create_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    access_token = crud.login_for_access_token(form_data)
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/login", response_model=Token)
 async def create_token(form_data: OAuth2PasswordRequestForm = Depends()):
     access_token = crud.login_for_access_token(form_data)
     return {"access_token": access_token, "token_type": "bearer"}
