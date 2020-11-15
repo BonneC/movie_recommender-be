@@ -29,7 +29,6 @@ class Movie(BaseModel):
     id: int
     imdb_id: str
     title: str
-    # genres = Column(ARRAY(String))
     release_date: datetime.date
     vote_average: float
     vote_count: float
@@ -39,13 +38,11 @@ class Movie(BaseModel):
 
 
 class Rating(BaseModel):
-    rating = float
-    user_id = int
-    timestamp = datetime.date
-    movie_id = int
-
-    class Config:
-        orm_mode = True
+    id: int
+    user_id: int
+    movie_id: int
+    rating: float
+    timestamp: datetime.date
 
 
 class RatingList(BaseModel):

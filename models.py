@@ -8,13 +8,15 @@ Base = declarative_base()
 
 class Rating(Base):
     __tablename__ = 'ratings'
-    user_id = Column(Integer, ForeignKey('users.id'), primary_key=True)
-    movie_id = Column(Integer, ForeignKey('movies.id'), primary_key=True)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    movie_id = Column(Integer)
     rating = Column(Float)
     timestamp = Column(Date)
-    movie = relationship("Movie")
 
-    def __init__(self, rating, timestamp):
+    def __init__(self, user_id, movie_id, rating, timestamp):
+        self.user_id = user_id
+        self.movie_id = movie_id
         self.rating = rating
         self.timestamp = timestamp
 
@@ -28,7 +30,6 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String)
     password = Column(String)
-    movies = relationship("Rating")
 
     def __init__(self, username, password):
         self.username = username
@@ -44,7 +45,6 @@ class Movie(Base):
     id = Column(Integer, primary_key=True)
     imdb_id = Column(String)
     title = Column(String)
-    # genres = Column(ARRAY(String))
     release_date = Column(Date)
     vote_average = Column(Float)
     vote_count = Column(Float)
@@ -52,7 +52,6 @@ class Movie(Base):
     def __init__(self, imdb_id, title, release_date, vote_average, vote_count):
         self.imdb_id = imdb_id
         self.title = title
-        # self.genres = genres
         self.release_date = release_date
         self.vote_average = vote_average
         self.vote_count = vote_count
