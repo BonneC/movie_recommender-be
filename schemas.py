@@ -45,5 +45,3 @@ class Rating(BaseModel):
     timestamp: datetime.date
 
 
-class RatingList(BaseModel):
-    ratings: List[Rating]

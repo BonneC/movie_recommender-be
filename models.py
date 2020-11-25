@@ -59,3 +59,9 @@ class Movie(Base):
     def __repr__(self):
         return "<Movie(id='{}', imdb_id='{}', title='{}')>" \
             .format(self.id, self.imdb_id, self.title)
+
+
+class Overview(Base):
+    __tablename__ = 'overviews'
+    id = Column(Integer, primary_key=True)
+    overview = Column(String)
