@@ -2,7 +2,7 @@ from fastapi import APIRouter, File, UploadFile, Depends
 from datetime import datetime as dt
 import crud
 from typing import List
-from schemas import User, Token, TokenData, Rating, RatingList
+from schemas import User, Token, TokenData, Rating
 from fastapi.security import OAuth2PasswordRequestForm
 
 router = APIRouter()
@@ -24,8 +24,8 @@ async def get_movies(current_user: User = Depends(crud.get_current_user)):
 
 
 @router.get("/movies/recommended")
-async def get_recommendations(user_ratings: List[Rating] = Depends(get_movies)):
-    return crud.get_recommended_movies(user_ratings)
+async def get_recommendations(current_user: User = Depends(crud.get_current_user)):
+    return crud.get_recommended_movies(current_user)
 
 
 @router.put("/movies/{movie_id}")

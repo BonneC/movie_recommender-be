@@ -1,6 +1,6 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Date, ForeignKey, Float, ARRAY
-from fastapi_users import models
+#from fastapi_users import models
 from sqlalchemy.orm import relationship
 
 Base = declarative_base()

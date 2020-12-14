@@ -1,8 +1,4 @@
-import shutil
-from pathlib import Path
 import datetime
-import os
-from typing import List
 from fastapi.encoders import jsonable_encoder
 from starlette.responses import FileResponse
 from sqlalchemy import create_engine
@@ -17,13 +13,15 @@ import datetime as dt
 import json
 from typing import Optional
 from config import DATABASE_URI, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from db import Session, engine
 import models
 import schemas
 import services.recommender_functions as rec
+import services.predictors as pred
 import pandas as pd
 
-engine = create_engine(DATABASE_URI)
-Session = sessionmaker(bind=engine)
+# engine = create_engine(DATABASE_URI)
+# Session = sessionmaker(bind=engine)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -61,26 +59,56 @@ def get_movie(id):
         return schemas.Movie(**jsonable_encoder(movie))
 
 
-# TODO fix dis
-def get_recommended_movies(ratings: List[schemas.Rating]):
-    ids = [r['movie_id'] for r in ratings]
-    print(ids)
+def get_ratings_for_user(user: schemas.User):
     with session_scope() as s:
-        movies = s.query(models.Movie.title).filter(models.Movie.id.in_(ids)).all()
-        user_titles = [movie[0] for movie in movies]
+        user = s.query(models.User).filter_by(username=user.username).first()
+        # ids = [r.movie_id for r in s.query(models.Rating.movie_id).filter_by(user_id=user.id)]
+        # movies = s.query(models.Movie).filter(models.Movie.id.in_(ids)).all()
+        ratings = s.query(models.Rating).filter_by(user_id=user.id).all()
+        tmp = pd.DataFrame.from_dict(jsonable_encoder(ratings))
+        print(tmp)
+        return jsonable_encoder(ratings)
+
+
+def get_movie_ids(user: schemas.User):
+    with session_scope() as s:
+        user = s.query(models.User).filter_by(username=user.username).first()
+        ids = [r.movie_id for r in s.query(models.Rating.movie_id).filter_by(user_id=user.id)]
+        return ids
+
+
+# TODO fix dis
+def get_recommended_movies(user: schemas.User):
+    ids = get_movie_ids(user)
+    # ids = [r['movie_id'] for r in ratings]
+    # print(ids)
+    with session_scope() as s:
+        titles = s.query(models.Movie.title).filter(models.Movie.id.in_(ids)).all()
+        user_titles = [title[0] for title in titles]
+        ratings = s.query(models.Rating.rating).filter(models.Rating.movie_id.in_(ids)).all()
+        ratings = [rating[0] for rating in ratings]
     print(user_titles)
-    # print(ratings)
-    keyword_movies = rec.keyword_recommender(user_titles)
-    print(keyword_movies['title'].head())
+    # # print(ratings)
+    movies = pd.DataFrame()
+    movies['id'] = ids
+    movies['user_titles'] = user_titles
+    movies['rating'] = ratings
+    movies = movies.astype({"rating": float})
+    print(movies.dtypes)
+    #print(movies.head())
+    predictions = pred.results(movies)
+    print(predictions.head())
+    #keyword_movies = rec.keyword_recommender(user_titles)
+    #print(keyword_movies['title'].head())
+    #
+    # input_movies = pd.DataFrame(ratings)
+    # input_movies['title'] = user_titles
+    # print(input_movies.head())
+    return ids
+    # genre_recs = rec.genre_recommender(input_movies, keyword_movies)
 
-    input_movies = pd.DataFrame(ratings)
-    input_movies['title'] = user_titles
-    print(input_movies.head())
-
-    genre_recs = rec.genre_recommender(input_movies, keyword_movies)
-
-    print(genre_recs['title'].tolist())
-    return jsonable_encoder(genre_recs.to_dict(orient="index"))
+    # print(genre_recs['title'].tolist())
+    # return jsonable_encoder(genre_recs.to_dict(orient="index"))
 
 
 def update_rating(movie_id, rating, current_user: schemas.User):
@@ -107,15 +135,6 @@ def delete_rating(movie_id, current_user: schemas.User):
         s.query(models.Rating).filter_by(user_id=user.id, movie_id=movie_id).delete()
         s.commit()
     return 201, {"status": "sukses"}
-
-
-def get_ratings_for_user(user: schemas.User):
-    with session_scope() as s:
-        user = s.query(models.User).filter_by(username=user.username).first()
-        # ids = [r.movie_id for r in s.query(models.Rating.movie_id).filter_by(user_id=user.id)]
-        # movies = s.query(models.Movie).filter(models.Movie.id.in_(ids)).all()
-        ratings = s.query(models.Rating).filter_by(user_id=user.id).all()
-        return jsonable_encoder(ratings)
 
 
 def authenticate_user(username: str, password: str):

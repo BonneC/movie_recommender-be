@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
+from sklearn.preprocessing import MinMaxScaler
+from contextlib import contextmanager
+from db import engine
 
 
 # creates cosine similarity matrix based on keywords
@@ -18,12 +21,42 @@ def vectorizer():
     return cosine_sim
 
 
+# creates cosine similarity matrices based on keywords from the keyword dataset or genres&director(soup) dataset
+# is already calculated and stored as a numpy matrix due to high calculation time
+def count_vectorizer():
+    cosine_sim = np.load('matrices/final_matrix.npy')
+    return cosine_sim
+
+
+# magic
+def group_movies(user_titles):
+    movies_db = pd.read_sql_table('movies', engine)
+    cosine_sim = np.load('matrices/final_matrix.npy')
+    ids = movies_db.loc[movies_db['title'].isin(user_titles)].index.tolist()
+    similarities = []
+    for id in ids:
+        similarities.append(list(cosine_sim[id]))
+    arr = np.array(similarities)
+    arr2 = []
+    for i in range(len(arr)):
+        arr2.append(arr[i][ids])
+    df = pd.DataFrame()
+    i = 0
+    for id in ids:
+        df[id] = arr2[i]
+        i = i + 1
+
+    correlated = df.corr()
+    return correlated
+
+
 # Function that takes in movie titles, cosine similarity for similarity between movies and
 # the movie database
 # cosine similarity is a 10000x10000 matrix (10k because we have 10k movies in the dataset)
 def keyword_recommender(titles, cosine_sim=vectorizer()):
     # read the movies database
-    movies_db = pd.read_csv('datasets/movies_10k.csv')
+    # movies_db = pd.read_csv('datasets/movies_10k.csv')
+    movies_db = pd.read_sql_table('movies', engine)
     # we create an array with zeroes and 10k elements
     # each row represents each movie
     final_scores = np.zeros(10000)
@@ -68,6 +101,51 @@ def keyword_recommender(titles, cosine_sim=vectorizer()):
     return movies_df
 
 
+# mean is calculated by mean = movies['vote_average'].mean()
+# the formula used is IMDB's rating formula (based on the Bayesian average method)
+def weighted_rating(movies, mean=6.3, n_votes=160):
+    v = movies['vote_count']
+    R = movies['vote_average']
+    # calculation based on the IMDB formula
+    return (v / (v + n_votes) * R) + (n_votes / (n_votes + v) * mean)
+
+
+# add a column to the given dataframe that contains popularity scores for each movie
+# in that same dataframe
+def set_weighted_rating(movies):
+    # movies_db = pd.read_csv('datasets/final_movies.csv')
+    movies['score'] = movies.apply(weighted_rating, axis=1)
+    # movies = movies.sort_values('score', ascending=False)
+    return movies
+
+
+# sorts movies by sum of weighted ratings score + keyword score
+def summed_rating(movies):
+    # scaler for the popularity ratings
+    # it changes the popularity values to range from 0 to 1
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    # scaler for the keyword scores
+    # changes the values to range from 0 to 3
+    # keyword scores have bigger relevance in this recommendation system,
+    # which is why they have a bigger range
+    scaler2 = MinMaxScaler(feature_range=(0, 3))
+    movies['score'] = scaler.fit_transform(movies['score'].values.reshape(-1, 1))
+    movies['keyword_scores'] = scaler2.fit_transform(movies['keyword_scores'].values.reshape(-1, 1))
+    # create a column to contain the final movie score = popularity rating + keyword score
+    movies['summed'] = movies['score'] + movies['keyword_scores']
+    # sort by highest value
+    movies = movies.sort_values('summed', ascending=False)
+    return movies
+
+
+# takes a list of ids and returns a list of the movie titles for each id
+def get_titles_from_ids(ids):
+    movies_db = pd.read_sql_table('movies', engine)
+    movies = movies_db.loc[ids, :]
+    user_titles = movies['title'].tolist()
+    return user_titles
+
+
 def get_onehot(movies):
     onehot_db = pd.read_csv('datasets/genre_onehot_10k.csv')
     ids = movies['id'].array
@@ -77,12 +155,13 @@ def get_onehot(movies):
 
 def genre_recommender(user_movies, movies):
     # read the movies database
-    movies_db = pd.read_csv('datasets/movies_10k.csv')
+    movies_db = pd.read_sql_table('movies', engine)
     # find the user's movies in the movie database
-    input_movies = movies_db[movies_db['title'].isin(user_movies['title'].tolist())]
+    #input_movies = movies_db[movies_db['title'].isin(user_movies['title'].tolist())]
     # get onehot values for each movie's genres
+    #user_onehot = get_onehot(user_movies['user_titles'])
+    input_movies = movies_db[movies_db['title'].isin(user_movies['user_titles'].tolist())]
     user_onehot = get_onehot(input_movies)
-
     # reset the indexes and drop the id, we only need the columns with the genres
     user_onehot.reset_index(drop=True, inplace=True)
     user_onehot = user_onehot.drop(['id'], axis=1)
