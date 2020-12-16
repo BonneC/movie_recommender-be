@@ -14,8 +14,13 @@ async def read_root():
 
 
 @router.get("/movie/{item_id}")
-async def show_movie(item_id: int):
+async def get_movie(item_id: int):
     return crud.get_movie(item_id)
+
+
+@router.get("/movies/search/{keyword}")
+async def search_movies(keyword: str):
+    return crud.search_movies(keyword)
 
 
 @router.get("/movies/")

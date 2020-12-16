@@ -15,6 +15,7 @@ def calculate(ids, input_movies):
     return weighted_movies
 
 
+# get recommendations for the given movies
 def results(movies):
     # create empty dataframe to which we will append every recommendations per 10 movies
     final = pd.DataFrame()
