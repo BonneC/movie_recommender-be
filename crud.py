@@ -56,17 +56,23 @@ def get_user(name):
 def get_movie(id):
     with session_scope() as s:
         movie = s.query(models.Movie).filter_by(id=id).first()
-        return schemas.Movie(**jsonable_encoder(movie))
+        return jsonable_encoder(movie)
 
 
 # get a list of all movies that contain the given keyword/s
 def search_movies(keyword):
+    """
+
+    :param keyword:
+    :return:
+    """
     with session_scope() as s:
         print(keyword)
-        look_for = '%{0}%'.format(keyword)
+        #look_for = '%{0}%'.format(keyword)
+        look_for = f'%{keyword}%'
         movies = s.query(models.Movie).filter(models.Movie.title.ilike(look_for)).all()
         print(movies)
-        return jsonable_encoder(movies)
+        return jsonable_encoder(movies[:5])
 
 
 # get a list of all the movies that the user has rated
@@ -109,13 +115,15 @@ def get_recommended_movies(user: schemas.User):
     # print(movies.head())
     predictions = pred.results(movies)
     print(predictions.head())
+    final = predictions.head()
+    print(final)
     # keyword_movies = rec.keyword_recommender(user_titles)
     # print(keyword_movies['title'].head())
     #
     # input_movies = pd.DataFrame(ratings)
     # input_movies['title'] = user_titles
     # print(input_movies.head())
-    return ids
+    return jsonable_encoder(final.reset_index().to_dict('records'))
     # genre_recs = rec.genre_recommender(input_movies, keyword_movies)
 
     # print(genre_recs['title'].tolist())
